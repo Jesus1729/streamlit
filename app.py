@@ -10,6 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 import joblib
 import os
+import shutil
 
 nltk.download('all')
 nltk.download('stopwords')
@@ -32,20 +33,38 @@ def train_model(df):
     model = LogisticRegression()
     model.fit(X_train, y_train)
     
-    # Guardar modelo y vectorizador
-    os.makedirs('model', exist_ok=True)
-    joblib.dump(vectorizer, 'model/vectorizer.pkl')
-    joblib.dump(model, 'model/model.pkl')
+    # Verificar si los modelos ya existen antes de guardarlos
+    if not os.path.exists('model'):
+        os.makedirs('model', exist_ok=True)
+    
+    if not os.path.exists('model/vectorizer.pkl'):
+        joblib.dump(vectorizer, 'model/vectorizer.pkl')
+    else:
+        print("El vectorizador ya existe.")
+    
+    if not os.path.exists('model/model.pkl'):
+        joblib.dump(model, 'model/model.pkl')
+    else:
+        print("El modelo ya existe.")
     
     y_pred = model.predict(X_test)
     return accuracy_score(y_test, y_pred)
 
+def load_models():
+    if os.path.exists('model/vectorizer.pkl') and os.path.exists('model/model.pkl'):
+        vectorizer = joblib.load('model/vectorizer.pkl')
+        model = joblib.load('model/model.pkl')
+        return vectorizer, model
+    else:
+        st.error("❌ **Modelos no encontrados. Entrena el modelo primero.**")
+        return None, None
+
 def predict_sentiment(text):
-    vectorizer = joblib.load('model/vectorizer.pkl')
-    model = joblib.load('model/model.pkl')
-    text_clean = clean_text(text)
-    X = vectorizer.transform([text_clean])
-    return 'positive' if model.predict(X)[0] == 1 else 'negative'
+    vectorizer, model = load_models()
+    if vectorizer and model:
+        text_clean = clean_text(text)
+        X = vectorizer.transform([text_clean])
+        return 'positive' if model.predict(X)[0] == 1 else 'negative'
 
 # Personalización de la app
 st.markdown("""
@@ -98,8 +117,6 @@ if uploaded_file:
 st.subheader("🔍 **Prueba el modelo**")
 user_input = st.text_area("Escribe un texto para analizar el sentimiento:", height=150)
 if st.button("⚡ Predecir Sentimiento"):
-    if os.path.exists("model/model.pkl"):
-        sentiment = predict_sentiment(user_input)
+    sentiment = predict_sentiment(user_input)
+    if sentiment:
         st.write(f"💬 **Sentimiento Predicho**: **{sentiment}**")
-    else:
-        st.error("❌ **Primero entrena el modelo subiendo un archivo CSV.**")
